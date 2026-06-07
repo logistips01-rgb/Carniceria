@@ -20,19 +20,48 @@ enum OrderStatus {
   CANCELLED
 }
 
+model Shop {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  name         String
+  email        String    @unique
+  passwordHash String
+  phone        String?
+  address      String?
+  createdAt    DateTime  @default(now())
+  products     Product[]
+  orders       Order[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  shopId    String
+  shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 model Product {
   id        String      @id @default(cuid())
-  name      String      @unique
+  shopId    String
+  shop      Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name      String
   category  String
   unit      String // "kg", "unidad", "docena"...
   price     Float // precio por unidad/kg
   active    Boolean     @default(true)
   createdAt DateTime    @default(now())
   items     OrderItem[]
+
+  @@unique([shopId, name])
 }
 
 model Order {
   id            String      @id @default(cuid())
+  shopId        String
+  shop          Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
   customerName  String
   customerPhone String
   pickupTime    DateTime

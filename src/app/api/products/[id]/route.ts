@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionShop } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
 
 interface UpdateProductBody {
@@ -11,7 +12,18 @@ interface UpdateProductBody {
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const shop = await getSessionShop();
+  if (!shop) {
+    return NextResponse.json({ error: "No has iniciado sesión." }, { status: 401 });
+  }
+
   const { id } = await params;
+
+  const existing = await prisma.product.findUnique({ where: { id } });
+  if (!existing || existing.shopId !== shop.id) {
+    return NextResponse.json({ error: "Producto no encontrado." }, { status: 404 });
+  }
+
   const body = (await request.json()) as UpdateProductBody;
 
   const data: Prisma.ProductUpdateInput = {};

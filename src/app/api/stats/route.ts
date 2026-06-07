@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionShop } from "@/lib/auth";
 
 export async function GET() {
+  const shop = await getSessionShop();
+  if (!shop) {
+    return NextResponse.json({ error: "No has iniciado sesión." }, { status: 401 });
+  }
+
   const completedOrders = await prisma.order.findMany({
-    where: { status: "COMPLETED" },
+    where: { shopId: shop.id, status: "COMPLETED" },
     include: { items: { include: { product: true } } },
     orderBy: { pickupTime: "desc" },
   });

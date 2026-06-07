@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getSessionShop } from "@/lib/auth";
 import { Prisma } from "@/generated/prisma/client";
 
 export async function GET(request: Request) {
+  const shop = await getSessionShop();
+  if (!shop) {
+    return NextResponse.json({ error: "No has iniciado sesión." }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const all = searchParams.get("all");
 
   const products = await prisma.product.findMany({
-    where: all ? undefined : { active: true },
+    where: { shopId: shop.id, ...(all ? {} : { active: true }) },
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
 
@@ -22,6 +28,11 @@ interface CreateProductBody {
 }
 
 export async function POST(request: Request) {
+  const shop = await getSessionShop();
+  if (!shop) {
+    return NextResponse.json({ error: "No has iniciado sesión." }, { status: 401 });
+  }
+
   const body = (await request.json()) as Partial<CreateProductBody>;
 
   if (!body.name?.trim() || !body.category?.trim() || !body.unit?.trim() || !(Number(body.price) > 0)) {
@@ -34,6 +45,7 @@ export async function POST(request: Request) {
   try {
     const product = await prisma.product.create({
       data: {
+        shopId: shop.id,
         name: body.name.trim(),
         category: body.category.trim(),
         unit: body.unit.trim(),

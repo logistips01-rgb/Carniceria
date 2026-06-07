@@ -25,7 +25,12 @@ const STATUS_NOTIFICATIONS: Partial<Record<OrderStatus, { title: string; body: (
   },
 };
 
-export async function notifyOrderStatusChange(orderId: string, status: OrderStatus, customerName: string) {
+export async function notifyOrderStatusChange(
+  orderId: string,
+  status: OrderStatus,
+  customerName: string,
+  shopSlug: string,
+) {
   if (!vapidPublicKey || !vapidPrivateKey) return;
 
   const notification = STATUS_NOTIFICATIONS[status];
@@ -37,7 +42,7 @@ export async function notifyOrderStatusChange(orderId: string, status: OrderStat
   const payload = JSON.stringify({
     title: notification.title,
     body: notification.body(customerName),
-    url: `/pedido/seguimiento?id=${orderId}`,
+    url: `/${shopSlug}`,
     tag: `order-${orderId}`,
   });
 

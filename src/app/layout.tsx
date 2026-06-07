@@ -44,11 +44,14 @@ export default function RootLayout({
               🥩 Carnicería <span className="text-red-700">Online</span>
             </Link>
             <div className="flex items-center gap-6 text-sm font-medium text-zinc-600">
-              <Link href="/pedido" className="transition hover:text-red-700">
-                Hacer pedido
+              <Link href="/acceso" className="transition hover:text-red-700">
+                Acceso
               </Link>
-              <Link href="/panel" className="transition hover:text-red-700">
-                Panel carnicero
+              <Link
+                href="/registro"
+                className="rounded-lg bg-red-700 px-4 py-2 text-white transition hover:bg-red-800"
+              >
+                Da de alta tu carnicería
               </Link>
             </div>
           </nav>

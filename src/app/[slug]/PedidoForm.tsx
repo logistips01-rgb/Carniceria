@@ -20,7 +20,7 @@ function nextValidPickupDefault(): string {
   return local.toISOString().slice(0, 16);
 }
 
-export default function PedidoPage() {
+export default function PedidoForm({ shopSlug, shopName }: { shopSlug: string; shopName: string }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Cart>({});
@@ -34,11 +34,11 @@ export default function PedidoPage() {
   const [familyFilter, setFamilyFilter] = useState("ALL");
 
   useEffect(() => {
-    fetch("/api/products")
+    fetch(`/api/tiendas/${shopSlug}/productos`)
       .then((res) => res.json())
       .then((data: Product[]) => setProducts(data))
       .finally(() => setLoading(false));
-  }, []);
+  }, [shopSlug]);
 
   const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
@@ -83,7 +83,7 @@ export default function PedidoPage() {
 
     setSubmitting(true);
     try {
-      const response = await fetch("/api/orders", {
+      const response = await fetch(`/api/tiendas/${shopSlug}/pedidos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -117,6 +117,7 @@ export default function PedidoPage() {
 
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
+      <p className="text-sm font-medium text-red-700">{shopName}</p>
       <h1 className="text-3xl font-bold text-zinc-900">Haz tu pedido</h1>
       <p className="mt-1 text-zinc-600">
         Elige tus productos, indica cuándo quieres recogerlos y te lo dejamos preparado.
