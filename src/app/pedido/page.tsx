@@ -31,6 +31,7 @@ export default function PedidoPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
+  const [familyFilter, setFamilyFilter] = useState("ALL");
 
   useEffect(() => {
     fetch("/api/products")
@@ -50,6 +51,11 @@ export default function PedidoPage() {
     }
     return Array.from(groups.entries());
   }, [products]);
+
+  const visibleCategories = useMemo(
+    () => (familyFilter === "ALL" ? categories : categories.filter(([category]) => category === familyFilter)),
+    [categories, familyFilter],
+  );
 
   const cartEntries = useMemo(
     () =>
@@ -122,7 +128,36 @@ export default function PedidoPage() {
           {!loading && categories.length === 0 && (
             <p className="text-zinc-500">No hay productos disponibles ahora mismo.</p>
           )}
-          {categories.map(([category, items]) => (
+          {categories.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setFamilyFilter("ALL")}
+                className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+                  familyFilter === "ALL"
+                    ? "border-red-700 bg-red-700 text-white"
+                    : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"
+                }`}
+              >
+                Todas
+              </button>
+              {categories.map(([category]) => (
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => setFamilyFilter(category)}
+                  className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition ${
+                    familyFilter === category
+                      ? "border-red-700 bg-red-700 text-white"
+                      : "border-zinc-300 bg-white text-zinc-600 hover:bg-zinc-100"
+                  }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          )}
+          {visibleCategories.map(([category, items]) => (
             <section key={category}>
               <h2 className="mb-3 text-lg font-semibold text-zinc-900">{category}</h2>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
