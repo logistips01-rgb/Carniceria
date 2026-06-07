@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { formatCurrency } from "@/lib/format";
+import { isPushSupported, subscribeToOrderNotifications } from "@/lib/push-client";
 import type { Order, Product } from "@/lib/types";
 
 type Cart = Record<string, number>; // productId -> cantidad
@@ -295,6 +296,9 @@ function OrderConfirmation({ order, onNewOrder }: { order: Order; onNewOrder: ()
           <span>{formatCurrency(order.total)}</span>
         </div>
       </div>
+
+      <NotifyMeCard orderId={order.id} />
+
       <div className="flex gap-3">
         <button
           onClick={onNewOrder}
@@ -309,6 +313,49 @@ function OrderConfirmation({ order, onNewOrder }: { order: Order; onNewOrder: ()
           Volver al inicio
         </Link>
       </div>
+    </div>
+  );
+}
+
+type NotifyState = "idle" | "loading" | "enabled" | "unsupported" | "error";
+
+function NotifyMeCard({ orderId }: { orderId: string }) {
+  const [state, setState] = useState<NotifyState>(() => (isPushSupported() ? "idle" : "unsupported"));
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleEnable() {
+    setState("loading");
+    setError(null);
+    try {
+      await subscribeToOrderNotifications(orderId);
+      setState("enabled");
+    } catch (err) {
+      setState("error");
+      setError(err instanceof Error ? err.message : "No se pudieron activar los avisos.");
+    }
+  }
+
+  if (state === "unsupported") return null;
+
+  return (
+    <div className="w-full rounded-xl border border-zinc-200 bg-white p-5 text-left shadow-sm">
+      <p className="font-semibold text-zinc-900">🔔 Avísame cuando esté listo</p>
+      <p className="mt-1 text-sm text-zinc-600">
+        Activa los avisos en este dispositivo y te enviaremos una notificación en cuanto el carnicero
+        marque tu pedido como preparado.
+      </p>
+      {state === "enabled" ? (
+        <p className="mt-3 text-sm font-medium text-emerald-700">✅ Avisos activados para este pedido.</p>
+      ) : (
+        <button
+          onClick={handleEnable}
+          disabled={state === "loading"}
+          className="mt-3 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 disabled:opacity-60"
+        >
+          {state === "loading" ? "Activando…" : "Activar avisos"}
+        </button>
+      )}
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
     </div>
   );
 }
