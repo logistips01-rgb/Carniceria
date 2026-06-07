@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { formatCurrency, formatDateTime } from "@/lib/format";
-import { STATUS_COLORS, STATUS_FLOW, STATUS_LABELS, type Order, type OrderStatus } from "@/lib/types";
+import { STATUS_COLORS, STATUS_FLOW, STATUS_LABELS, type Order, type OrderStatus, type Product } from "@/lib/types";
 
-type Tab = "pedidos" | "historico";
+type Tab = "pedidos" | "productos" | "historico";
 type StatusFilter = "ACTIVE" | OrderStatus | "ALL";
 
 const FILTERS: { value: StatusFilter; label: string }[] = [
@@ -28,12 +28,19 @@ export default function PanelPage() {
         <TabButton active={tab === "pedidos"} onClick={() => setTab("pedidos")}>
           Pedidos
         </TabButton>
+        <TabButton active={tab === "productos"} onClick={() => setTab("productos")}>
+          Productos
+        </TabButton>
         <TabButton active={tab === "historico"} onClick={() => setTab("historico")}>
           Histórico de ventas
         </TabButton>
       </div>
 
-      <div className="mt-6">{tab === "pedidos" ? <OrdersPanel /> : <HistoryPanel />}</div>
+      <div className="mt-6">
+        {tab === "pedidos" && <OrdersPanel />}
+        {tab === "productos" && <ProductsPanel />}
+        {tab === "historico" && <HistoryPanel />}
+      </div>
     </div>
   );
 }
@@ -205,6 +212,219 @@ function OrderCard({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProductsPanel() {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/products?all=1")
+      .then((response) => response.json())
+      .then((data: Product[]) => {
+        if (cancelled) return;
+        setProducts(data);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function sortProducts(list: Product[]) {
+    return [...list].sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+  }
+
+  function handleCreated(product: Product) {
+    setProducts((prev) => sortProducts([...prev, product]));
+  }
+
+  function handleUpdated(product: Product) {
+    setProducts((prev) => sortProducts(prev.map((p) => (p.id === product.id ? product : p))));
+  }
+
+  return (
+    <div className="space-y-8">
+      <NewProductForm onCreated={handleCreated} />
+
+      <section>
+        <h2 className="text-lg font-semibold text-zinc-900">Catálogo</h2>
+        {loading && <p className="mt-2 text-sm text-zinc-500">Cargando productos…</p>}
+        {!loading && products.length === 0 && (
+          <p className="mt-2 rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center text-zinc-500">
+            Todavía no has añadido ningún producto.
+          </p>
+        )}
+        <div className="mt-3 space-y-2">
+          {products.map((product) => (
+            <ProductRow key={product.id} product={product} onUpdated={handleUpdated} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function NewProductForm({ onCreated }: { onCreated: (product: Product) => void }) {
+  const [name, setName] = useState("");
+  const [category, setCategory] = useState("");
+  const [unit, setUnit] = useState("kg");
+  const [price, setPrice] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setSubmitting(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, category, unit, price: Number(price) }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setError(data.error ?? "No se ha podido crear el producto.");
+        return;
+      }
+      onCreated(data as Product);
+      setName("");
+      setCategory("");
+      setPrice("");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-zinc-900">Añadir producto</h2>
+      <form onSubmit={handleSubmit} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <input
+          className="input"
+          placeholder="Nombre (p. ej. Solomillo de cerdo)"
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          required
+        />
+        <input
+          className="input"
+          placeholder="Categoría (p. ej. Cerdo)"
+          value={category}
+          onChange={(event) => setCategory(event.target.value)}
+          required
+        />
+        <input
+          className="input"
+          placeholder="Unidad (p. ej. kg, unidad)"
+          value={unit}
+          onChange={(event) => setUnit(event.target.value)}
+          required
+        />
+        <input
+          className="input"
+          type="number"
+          step="0.01"
+          min="0.01"
+          placeholder="Precio (€)"
+          value={price}
+          onChange={(event) => setPrice(event.target.value)}
+          required
+        />
+        <div className="sm:col-span-2 lg:col-span-4">
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 disabled:opacity-50"
+          >
+            {submitting ? "Guardando…" : "Añadir producto"}
+          </button>
+          {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
+        </div>
+      </form>
+    </section>
+  );
+}
+
+function ProductRow({ product, onUpdated }: { product: Product; onUpdated: (product: Product) => void }) {
+  const [unit, setUnit] = useState(product.unit);
+  const [price, setPrice] = useState(String(product.price));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirty = unit !== product.unit || Number(price) !== product.price;
+
+  async function update(data: Record<string, unknown>) {
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/products/${product.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setError(result.error ?? "No se ha podido actualizar el producto.");
+        return;
+      }
+      onUpdated(result as Product);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
+      <div className="min-w-[12rem] flex-1">
+        <p className="font-medium text-zinc-900">{product.name}</p>
+        <p className="text-sm text-zinc-500">{product.category}</p>
+      </div>
+
+      <input
+        className="input w-28"
+        value={unit}
+        onChange={(event) => setUnit(event.target.value)}
+        aria-label={`Unidad de ${product.name}`}
+      />
+      <div className="flex items-center gap-1">
+        <input
+          className="input w-24"
+          type="number"
+          step="0.01"
+          min="0.01"
+          value={price}
+          onChange={(event) => setPrice(event.target.value)}
+          aria-label={`Precio de ${product.name}`}
+        />
+        <span className="text-sm text-zinc-500">€</span>
+      </div>
+
+      <button
+        onClick={() => update({ unit, price: Number(price) })}
+        disabled={!dirty || saving || !(Number(price) > 0) || !unit.trim()}
+        className="rounded-lg bg-red-700 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-red-800 disabled:opacity-50"
+      >
+        Guardar
+      </button>
+
+      <button
+        onClick={() => update({ active: !product.active })}
+        disabled={saving}
+        className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
+          product.active
+            ? "border-zinc-300 text-zinc-600 hover:bg-zinc-100"
+            : "border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+        }`}
+      >
+        {product.active ? "Desactivar" : "Activar"}
+      </button>
+
+      {error && <p className="w-full text-sm text-red-700">{error}</p>}
     </div>
   );
 }
