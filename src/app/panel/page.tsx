@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatCurrency, formatDateTime } from "@/lib/format";
 import { STATUS_COLORS, STATUS_FLOW, STATUS_LABELS, type Order, type OrderStatus, type Product } from "@/lib/types";
 
@@ -246,21 +246,41 @@ function ProductsPanel() {
     setProducts((prev) => sortProducts(prev.map((p) => (p.id === product.id ? product : p))));
   }
 
+  const families = useMemo(() => Array.from(new Set(products.map((p) => p.category))).sort((a, b) => a.localeCompare(b)), [products]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, Product[]>();
+    for (const product of products) {
+      const list = map.get(product.category) ?? [];
+      list.push(product);
+      map.set(product.category, list);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [products]);
+
+  if (loading) return <p className="text-sm text-zinc-500">Cargando catálogo…</p>;
+
   return (
     <div className="space-y-8">
-      <NewProductForm onCreated={handleCreated} />
+      <NewProductForm families={families} onCreated={handleCreated} />
 
       <section>
-        <h2 className="text-lg font-semibold text-zinc-900">Catálogo</h2>
-        {loading && <p className="mt-2 text-sm text-zinc-500">Cargando productos…</p>}
-        {!loading && products.length === 0 && (
+        <h2 className="text-lg font-semibold text-zinc-900">Catálogo por familias</h2>
+        {products.length === 0 && (
           <p className="mt-2 rounded-lg border border-dashed border-zinc-300 bg-white p-8 text-center text-zinc-500">
             Todavía no has añadido ningún producto.
           </p>
         )}
-        <div className="mt-3 space-y-2">
-          {products.map((product) => (
-            <ProductRow key={product.id} product={product} onUpdated={handleUpdated} />
+        <div className="mt-4 space-y-6">
+          {grouped.map(([family, items]) => (
+            <div key={family}>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{family}</h3>
+              <div className="mt-2 space-y-2">
+                {items.map((product) => (
+                  <ProductRow key={product.id} product={product} onUpdated={handleUpdated} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </section>
@@ -268,13 +288,18 @@ function ProductsPanel() {
   );
 }
 
-function NewProductForm({ onCreated }: { onCreated: (product: Product) => void }) {
+const NEW_FAMILY = "__new__";
+
+function NewProductForm({ families, onCreated }: { families: string[]; onCreated: (product: Product) => void }) {
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("");
+  const [family, setFamily] = useState(() => families[0] ?? NEW_FAMILY);
+  const [newFamily, setNewFamily] = useState("");
   const [unit, setUnit] = useState("kg");
   const [price, setPrice] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const category = family === NEW_FAMILY ? newFamily.trim() : family;
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -293,8 +318,11 @@ function NewProductForm({ onCreated }: { onCreated: (product: Product) => void }
       }
       onCreated(data as Product);
       setName("");
-      setCategory("");
       setPrice("");
+      if (family === NEW_FAMILY) {
+        setFamily(category);
+        setNewFamily("");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -311,13 +339,26 @@ function NewProductForm({ onCreated }: { onCreated: (product: Product) => void }
           onChange={(event) => setName(event.target.value)}
           required
         />
-        <input
-          className="input"
-          placeholder="Categoría (p. ej. Cerdo)"
-          value={category}
-          onChange={(event) => setCategory(event.target.value)}
-          required
-        />
+
+        <select className="input" value={family} onChange={(event) => setFamily(event.target.value)}>
+          {families.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+          <option value={NEW_FAMILY}>+ Nueva familia…</option>
+        </select>
+
+        {family === NEW_FAMILY && (
+          <input
+            className="input"
+            placeholder="Nombre de la familia (p. ej. Cerdo)"
+            value={newFamily}
+            onChange={(event) => setNewFamily(event.target.value)}
+            required
+          />
+        )}
+
         <input
           className="input"
           placeholder="Unidad (p. ej. kg, unidad)"
@@ -338,7 +379,7 @@ function NewProductForm({ onCreated }: { onCreated: (product: Product) => void }
         <div className="sm:col-span-2 lg:col-span-4">
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !category}
             className="rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 disabled:opacity-50"
           >
             {submitting ? "Guardando…" : "Añadir producto"}
@@ -382,7 +423,6 @@ function ProductRow({ product, onUpdated }: { product: Product; onUpdated: (prod
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4 shadow-sm">
       <div className="min-w-[12rem] flex-1">
         <p className="font-medium text-zinc-900">{product.name}</p>
-        <p className="text-sm text-zinc-500">{product.category}</p>
       </div>
 
       <input
