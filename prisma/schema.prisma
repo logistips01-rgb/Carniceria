@@ -21,17 +21,18 @@ enum OrderStatus {
 }
 
 model Shop {
-  id           String    @id @default(cuid())
-  slug         String    @unique
-  name         String
-  email        String    @unique
-  passwordHash String
-  phone        String?
-  address      String?
-  createdAt    DateTime  @default(now())
-  products     Product[]
-  orders       Order[]
-  sessions     Session[]
+  id                 String    @id @default(cuid())
+  slug               String    @unique
+  name               String
+  email              String    @unique
+  passwordHash       String
+  phone              String?
+  address            String?
+  subscriptionActive Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  products           Product[]
+  orders             Order[]
+  sessions           Session[]
 }
 
 model Session {
@@ -39,6 +40,13 @@ model Session {
   token     String   @unique
   shopId    String
   shop      Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AdminSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
   expiresAt DateTime
   createdAt DateTime @default(now())
 }

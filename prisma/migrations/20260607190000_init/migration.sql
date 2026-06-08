@@ -13,6 +13,7 @@ CREATE TABLE "Shop" (
     "passwordHash" TEXT NOT NULL,
     "phone" TEXT,
     "address" TEXT,
+    "subscriptionActive" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Shop_pkey" PRIMARY KEY ("id")
@@ -27,6 +28,16 @@ CREATE TABLE "Session" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AdminSession" (
+    "id" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AdminSession_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -91,6 +102,9 @@ CREATE UNIQUE INDEX "Shop_email_key" ON "Shop"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Session_token_key" ON "Session"("token");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AdminSession_token_key" ON "AdminSession"("token");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Product_shopId_name_key" ON "Product"("shopId", "name");
